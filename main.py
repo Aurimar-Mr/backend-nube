@@ -7,6 +7,7 @@ from api.graph_bp import graph_bp
 from api.lectura_bp import lectura_bp
 from api.ai_bp import ai_bp
 from api.users_bp import users_bp
+from api.voice_bp import voice_bp
 
 def create_app():
     app = Flask(__name__)
@@ -21,6 +22,7 @@ def create_app():
     app.register_blueprint(ai_bp, url_prefix="/api")
     app.register_blueprint(lectura_bp, url_prefix="/api")
     app.register_blueprint(users_bp, url_prefix="/api") 
+    app.register_blueprint(voice_bp,url_prefix="/api")
 
     return app
 
