@@ -1,120 +1,52 @@
-Proyecto Backend – Biodigestor Inteligente
-📂 Estructura de Carpetas
-backend/
-│── venv/               # Entorno virtual (NO modificar, solo dependencias instaladas)
-│── main.py              # Punto de entrada (inicia el servidor)
-│── requirements.txt     # Librerías necesarias (FastAPI, scikit-learn, SQLAlchemy, etc.)
-│
-├── api/                 # Rutas/Endpoints
-│   ├── auth.py          # Login, registro, eliminar cuenta, restablecer contraseña
-│   ├── users.py         # Gestión de usuarios (listar, bloquear/desbloquear, ver activos)
-│   ├── sensors.py       # Lecturas de sensores (temperatura, pH, biogás)
-│   └── ai.py            # Endpoint para enviar datos y recibir predicción IA
-│
-├── models/              # Modelos de la base de datos
-│   ├── user.py
-│   ├── sensor.py
-│   └── config.py        # Configuración de conexión a MySQL
-│
-├── services/            # Lógica de negocio
-│   ├── ai_service.py    # Cargar modelo scikit-learn, predecir estado
-│   ├── user_service.py  # Crear, actualizar, bloquear usuarios
-│   └── sensor_service.py# Simulación y manejo de lecturas de sensores
-│
-├── database/            # Conexión a MySQL
-│   └── connection.py
-│
-├── ml/                  # Inteligencia artificial
-│   ├── train_model.py   # Entrenamiento con datos históricos
-│   ├── synthetic_data.py# Generación de datos sintéticos para pruebas
-│   ├── datasets/        # Carpeta para almacenar datasets simulados o de Kaggle
-│   │   └── sensors.csv
-│   └── model.pkl        # Modelo entrenado guardado
-│
-└── tests/               # Pruebas con Postman o PyTest
-    └── test_api.py
+# BMIS Backend - Biodigestor Monitoring Intelligent System
 
-📖 1. Visión General del Proyecto
+## Descripción
+Este proyecto es un **backend en Flask** para un sistema de monitoreo de biodigestores. Permite:  
 
-Este proyecto busca desarrollar una aplicación móvil nativa en Android (Kotlin + Android Studio) conectada a un backend en Python, para monitorear y gestionar un biodigestor.
+- Registrar lecturas de sensores.  
+- Gestionar sensores y procesos.  
+- Configurar gráficas.  
+- Administrar usuarios.  
+- Configurar alertas de voz.  
 
-La aplicación:
+---
 
-Permitirá a usuarios normales visualizar sensores en tiempo real (temperatura, pH y producción de biogás).
+## Instalación
 
-Permitirá a un administrador gestionar usuarios, gráficos y configuración del asistente de voz.
+### 1. Clonar el repositorio
+```bash
+git clone https://github.com/tu-usuario/bmis-backend.git
+cd bmis-backend
+```
 
-Se conectará con un módulo de Inteligencia Artificial (IA) desarrollado en Python, que analizará los datos y entregará recomendaciones al usuario mediante voz (TTS).
+### 2.  Crear Entorno virtual
+```bash
+python -m venv venv
+# Linux / Mac
+source venv/bin/activate
+# Windows
+venv\Scripts\activate
 
-📖 2. Módulos y Requisitos Funcionales
-🔑 Módulo de Autenticación y Cuentas
+```
 
-Login: acceso seguro con correo y contraseña.
+### 3. Instalar dependencias
+```bash
+pip install -r requirements.txt
+```
+### 4. Configurar variables de entorno
 
-Crear Cuenta: registro de nuevos usuarios.
+Crear un archivo .env si es necesario y agregar las variables de configuración (BD).
 
-Restablecer Contraseña.
+## Running
+Ejecutar la aplicación:
+```bash
+py main.py
+```
+El backend quedará corriendo por defecto en: http://localhost:5000
 
-Cerrar Sesión.
+## Versioning
+Se uso Github con la metodología Git Flow
 
-Eliminar Cuenta.
-
-👤 Módulo para el Usuario Normal
-
-Dashboard con 3 gráficos (MPAndroidChart):
-
-Temperatura (barras).
-
-pH (líneas).
-
-Producción de biogás (circular).
-
-Asistente de IA (TTS):
-
-Analiza datos en tiempo real.
-
-Clasifica estado como “bueno” o “malo”.
-
-Da recomendaciones por voz.
-
-⚙️ Módulo para el Administrador
-
-Gestión de Gráficas: cambiar tipo de visualización (barras → circular, etc.) en tiempo real.
-
-Configuración de Voz (TTS): cambiar voz del asistente para todos los usuarios.
-
-Gestión de Usuarios:
-
-Ver usuarios registrados.
-
-Ver usuarios activos.
-
-Ver usuarios bloqueados.
-
-Bloquear/Desbloquear cuentas.
-
-📖 3. Componentes Técnicos
-
-Frontend:
-
-Kotlin (Android Studio).
-
-Librerías: MPAndroidChart (gráficas), Lottie (animaciones), TTS (Text-to-Speech).
-
-Backend:
-
-Python (Flask o FastAPI).
-
-Librerías: FastAPI, SQLAlchemy, scikit-learn, pandas.
-
-Base de Datos:
-
-MySQL (almacena usuarios, lecturas de sensores, configuraciones de administrador).
-
-Inteligencia Artificial:
-
-Algoritmo: Árbol de Decisión (Decision Tree).
-
-Librería: scikit-learn.
-
-Datos: históricos del biodigestor o generados sintéticamente.
+## Built With
+Flask - Framework
+Python - Programming languague

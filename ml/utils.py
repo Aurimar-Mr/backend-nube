@@ -1,5 +1,4 @@
 """
-ml/utils.py
 Funciones para interpretar las predicciones del biodigestor.
 """
 

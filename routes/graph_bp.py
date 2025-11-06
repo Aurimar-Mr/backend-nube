@@ -7,7 +7,9 @@ from services.graph_service import (
 
 graph_bp = Blueprint("graph", __name__)
 
-@graph_bp.route("/graficas/update", methods=["POST"])
+# Guarda o actualiza la configuración de una gráfica para un sensor.
+# Body JSON esperado: {"sensor_id": int, "tipo_grafica": str}
+@graph_bp.post("/graficas/update")
 def update_graph():
     data = request.json
     sensor_id = data.get("sensor_id")
@@ -23,8 +25,8 @@ def update_graph():
         "tipo_grafica": config.tipo_grafica
     }), 200
 
-
-@graph_bp.route("/graficas", methods=["GET"])
+# Obtiene todas las configuraciones de gráficas.
+@graph_bp.get("/graficas")
 def get_graphs():
     configs = obtener_todas_configs()
     result = [
@@ -37,8 +39,8 @@ def get_graphs():
     ]
     return jsonify(result), 200
 
-
-@graph_bp.route("/graficas/<int:sensor_id>", methods=["GET"])
+# Obtiene la configuración de gráfica para un sensor específico.
+@graph_bp.get("/graficas/<int:sensor_id>")
 def get_graph(sensor_id):
     config = obtener_config_por_sensor(sensor_id)
     if not config:

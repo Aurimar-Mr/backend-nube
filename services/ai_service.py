@@ -1,57 +1,54 @@
-import pandas as pd
-import joblib
 import os
+import joblib
+import pandas as pd
 from datetime import datetime
-from ml.utils import obtener_recomendacion 
+from ml.utils import obtener_recomendacion
+from database.db_service import obtener_fecha_inicio_proceso_activo
 
 # --- Rutas de Modelos ---
-# 1. Obtener la ruta del directorio actual (services/)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# 2. Navegar al directorio 'ml' (desde services/ subir un nivel y bajar a ml/)
 ML_DIR = os.path.join(BASE_DIR, '..', 'ml')
 
-# Cargar modelos
+# --- Carga de modelos ---
 try:
     modelo_alerta = joblib.load(os.path.join(ML_DIR, "modelo_alerta.pkl"))
     modelo_tipo = joblib.load(os.path.join(ML_DIR, "modelo_tipo_alerta.pkl"))
 except FileNotFoundError:
-    # Este error se debe manejar si no se ha ejecutado el entrenamiento
     print("FATAL ERROR: No se pudieron cargar los modelos de IA. Ejecute el script de entrenamiento.")
     modelo_alerta = None
     modelo_tipo = None
 
-
-# Fecha de inicio de tu dataset
-FECHA_INICIO = datetime.strptime("01/10/2025 00:00", "%d/%m/%Y %H:%M")
+# -------------------------------------------------------------------
+# AI SERVICE FUNCTIONS
+# -------------------------------------------------------------------
 
 def calcular_dia_proceso(timestamp_str):
     """
     Calcula el día del proceso basándose en el timestamp de la lectura.
+    Devuelve 0 si no hay proceso activo.
+    Soporta formatos: '%Y-%m-%d %H:%M:%S' y '%d/%m/%Y %H:%M'.
     """
-    try:
-        # Asume formato ISO (YYYY-MM-DD HH:MM:SS) o el formato de tu CSV
-        # 💡 Importante: Asegúrate de que el formato coincida con el dato de entrada
-        timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
-    except ValueError:
-        try:
-            timestamp = datetime.strptime(timestamp_str, "%d/%m/%Y %H:%M")
-        except:
-            # Fallback en caso de formato incorrecto
-            return 1 
+    fecha_inicio = obtener_fecha_inicio_proceso_activo()
+    if fecha_inicio is None:
+        return 0
 
-    delta = timestamp - FECHA_INICIO
-    return delta.days + 1  # día 1 = primer día
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%d/%m/%Y %H:%M"):
+        try:
+            timestamp = datetime.strptime(timestamp_str, fmt)
+            break
+        except ValueError:
+            continue
+    else:
+        return 1
+
+    delta = timestamp - fecha_inicio
+    return delta.days + 1
 
 def predecir_alerta(temperatura, presion, gas, timestamp):
     """
-    Realiza la predicción de alerta usando los modelos cargados.
-    
-    :param temperatura: Temperatura actual (°C).
-    :param presion: Presión actual (kPa).
-    :param gas: Concentración de gas actual (ppm).
-    :param timestamp: Fecha y hora de la lectura.
-    :return: Diccionario con predicciones y recomendaciones.
+    Realiza predicción de alerta utilizando modelos de IA.
+    Maneja escenarios donde no hay proceso activo o modelos no cargados.
+    Retorna un diccionario estandarizado con resultados y recomendaciones.
     """
     if modelo_alerta is None or modelo_tipo is None:
         return {
@@ -62,10 +59,16 @@ def predecir_alerta(temperatura, presion, gas, timestamp):
             "dia_proceso": 0
         }
 
-    # 1. Calcular el día del proceso
     dia_proceso = calcular_dia_proceso(timestamp)
+    if dia_proceso == 0:
+        return {
+            "alerta_ia": 0,
+            "tipo_estado": "Proceso finalizado",
+            "mensaje_lectura": "No hay proceso activo. No se generan predicciones.",
+            "recomendacion": "Inicie un nuevo proceso biodigestor.",
+            "dia_proceso": 0
+        }
 
-    # 2. Preparar la entrada para los modelos (debe coincidir con X del entrenamiento)
     entrada = pd.DataFrame([{
         "temperatura_celsius": temperatura,
         "presion_biogas_kpa": presion,
@@ -73,26 +76,21 @@ def predecir_alerta(temperatura, presion, gas, timestamp):
         "dia_proceso": dia_proceso
     }])
 
-    # 3. Realizar predicciones
-    alerta_pred = modelo_alerta.predict(entrada)[0]
-    tipo_pred = modelo_tipo.predict(entrada)[0]
+    alerta_pred = int(modelo_alerta.predict(entrada)[0])
+    tipo_pred = str(modelo_tipo.predict(entrada)[0])
 
-    # 4. Generar la recomendación completa usando la función de utilidad
     recomendacion_data = obtener_recomendacion(
-        estado=int(alerta_pred),
+        estado=alerta_pred,
         temperatura=temperatura,
         presion=presion,
         gas=gas
     )
 
-    # 5. Combinar resultados
-    resultado = {
-        "alerta_ia": int(alerta_pred),
-        "tipo_alerta_modelo": str(tipo_pred), # La predicción de tipo del modelo
-        "tipo_estado": recomendacion_data["tipo"], # El tipo de la utilidad (Normal o Alerta: [Tipo])
-        "mensaje_lectura": recomendacion_data["mensaje"],
-        "recomendacion": recomendacion_data["recomendacion"],
+    return {
+        "alerta_ia": alerta_pred,
+        "tipo_alerta_modelo": tipo_pred,
+        "tipo_estado": recomendacion_data.get("tipo", ""),
+        "mensaje_lectura": recomendacion_data.get("mensaje", ""),
+        "recomendacion": recomendacion_data.get("recomendacion", ""),
         "dia_proceso": dia_proceso
     }
-
-    return resultado

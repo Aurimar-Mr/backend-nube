@@ -77,11 +77,11 @@ y_alerta_pred = modelo_alerta.predict(X_test)
 y_tipo_pred = modelo_tipo.predict(X_test)
 
 print("\n--- Resultados de Evaluación ---")
-print("🔹 Precisión alerta:", accuracy_score(y_alerta_test, y_alerta_pred))
-print("🔹 Precisión tipo alerta:", accuracy_score(y_tipo_test, y_tipo_pred))
+print("Precisión alerta:", accuracy_score(y_alerta_test, y_alerta_pred))
+print("Precisión tipo alerta:", accuracy_score(y_tipo_test, y_tipo_pred))
 print("\nReporte tipo de alerta:\n", classification_report(y_tipo_test, y_tipo_pred, zero_division=0))
 
 # Guardar modelos en el directorio 'ml'
 joblib.dump(modelo_alerta, "ml/modelo_alerta.pkl")
 joblib.dump(modelo_tipo, "ml/modelo_tipo_alerta.pkl")
-print("\n✅ Modelos entrenados y guardados en el directorio 'ml/'")
+print("\n Modelos entrenados y guardados en el directorio 'ml/'")

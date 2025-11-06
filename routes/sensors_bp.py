@@ -6,7 +6,9 @@ from services.sensor_service import (
 
 sensors_bp = Blueprint("sensor", __name__)
 
-@sensors_bp.route("/sensores", methods=["POST"])
+# Crea un nuevo sensor.
+# Body JSON esperado: {"nombre": str, "tipo": str, "unidad": str}
+@sensors_bp.post("/sensores")
 def create_sensor():
     data = request.json
     nombre = data.get("nombre")
@@ -28,8 +30,8 @@ def create_sensor():
         "unidad": sensor.unidad
     }), 201
 
-
-@sensors_bp.route("/sensores", methods=["GET"])
+# Obtiene todos los sensores registrados.
+@sensors_bp.get("/sensores")
 def get_sensors():
     sensores = obtener_sensores()
     result = [{"id": s.id, "nombre": s.nombre, "tipo": s.tipo, "unidad": s.unidad} for s in sensores]

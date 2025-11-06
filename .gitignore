@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+
+# Entornos virtuales
+venv/
+.venv/
+env/
+
+# Archivos generados / caché
+.pytest_cache/
+.mypy_cache/
+dist/
+build/
+*.egg-info/
+
+# Archivos de configuración local/secretos
+.env
