@@ -8,12 +8,6 @@ lectura_bp = Blueprint("lectura", __name__)
 
 """
 Registra una nueva lectura para un sensor.
-    Body JSON esperado:
-       {
-           "sensor_id": int,
-           "valor": float,
-           "observaciones": str (opcional)
-       }
 """
 @lectura_bp.post("/lecturas")
 def create_lectura():
@@ -25,18 +19,18 @@ def create_lectura():
     if not sensor_id or valor is None:
         return jsonify({"error": "Faltan datos obligatorios"}), 400
 
-    lectura = registrar_lectura(sensor_id, valor, observaciones)
+    try:
+        lectura = registrar_lectura(sensor_id, valor, observaciones)
+    except RuntimeError as e:
+        # Captura el error si no hay proceso activo
+        return jsonify({"error": str(e)}), 409 
 
-    if isinstance(lectura, tuple) and len(lectura) == 2 and isinstance(lectura[0], dict) and 'error' in lectura[0]:
-        error_data, status_code = lectura
-        return jsonify(error_data), status_code
-    
     return jsonify({
         "message": "Lectura registrada exitosamente",
         "id": lectura.id,
         "sensor_id": lectura.sensor_id,
         "valor": lectura.valor,
-        "fecha_hora": lectura.fecha_hora,
+        "fecha_hora": lectura.fecha_hora.isoformat(),
         "observaciones": lectura.observaciones
     }), 201
 
@@ -48,18 +42,21 @@ def get_lecturas():
         "id": l.id,
         "sensor_id": l.sensor_id,
         "valor": l.valor,
-        "fecha_hora": l.fecha_hora,
+        "fecha_hora": l.fecha_hora.isoformat(),
         "observaciones": l.observaciones
     } for l in lecturas]
     return jsonify(result), 200
 
-# Obtiene las últimas lecturas de un sensor específico (máx 20).
+# Obtiene las últimas lecturas de un sensor específico (máx 20) del PROCESO ACTIVO.
 @lectura_bp.get("/lecturas/<int:sensor_id>")
 def get_lecturas_por_sensor_endpoint(sensor_id):
     try:
+        # Esta llamada ahora trae solo datos del proceso activo o []
         lecturas = obtener_lecturas_por_sensor(sensor_id, limite=20)
+        
         if not lecturas:
-            return jsonify([]), 200
+            # Si no hay lecturas, retorna lista vacía 200 OK.
+            return jsonify([]), 200 
         
         result = [{
             "id": l.id,
