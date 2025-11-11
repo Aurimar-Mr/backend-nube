@@ -5,157 +5,143 @@ from services.user_service import (
     verificar_existencia_telefono, 
     restablecer_contrasena
 )
-from sqlalchemy.exc import SQLAlchemyError 
+
+# Importaciones de la base de datos y modelos (asumiendo que están disponibles)
+from database.models.user import User 
+from database.connection import db 
+from datetime import datetime 
+
 auth_bp = Blueprint("auth", __name__)
 
-
-# Función auxiliar para manejar la validación de datos JSON
-def validate_request_data(required_fields):
-    # Verifica que todos los campos requeridos estén presentes en el cuerpo JSON.
-    data = request.json
-    if not data:
-        return {"error": "El cuerpo de la solicitud no puede estar vacío."}, 400
-    
-    for field in required_fields:
-        if field not in data:
-            return {"error": f"Falta el campo requerido: '{field}'."}, 400
-    return data, None
-
-
-@auth_bp.post("/register")
+# -----------------------------------------------------------------
+# 1. Registro de Usuario (RESTful: Creación de recurso Usuario)
+# Ruta: /register
+# Método: POST
+# -----------------------------------------------------------------
+@auth_bp.route("/register", methods=["POST"])
 def register():
-    # Validación de campos requeridos
-    required = ["nombre", "telefono", "password", "confirm_password"]
-    data, error_response = validate_request_data(required)
-    if error_response:
-        return jsonify(error_response), 400
-    
-    # Validación de coincidencia de contraseñas
-    if data["password"] != data["confirm_password"]:
-        return jsonify({"error": "Las contraseñas no coinciden."}), 400
+    data = request.json
 
+    # Validaciones en la capa de la ruta
+    if not data or "nombre" not in data or "telefono" not in data \
+       or "password" not in data or "confirm_password" not in data:
+        return jsonify({"error": "Faltan datos para el registro"}), 400
+
+    if data["password"] != data["confirm_password"]:
+        return jsonify({"error": "Las contraseñas no coinciden"}), 400
+
+    # Llamada al servicio
     try:
-        # Llamada al servicio de creación de usuario
         user, error = crear_usuario(
             nombre=data["nombre"],
             telefono=data["telefono"],
             password=data["password"]
         )
         
-        # Manejo de errores de negocio (ej: teléfono ya existe)
         if error:
-            return jsonify({"error": error}), 409 # 409 Conflict si ya existe
-        
-        # Respuesta exitosa
+            # Error de lógica de negocio (ej. teléfono ya registrado)
+            return jsonify({"error": error}), 400
+
+        # Respuesta exitosa: 201 Created
         return jsonify({
-            "message": "Usuario creado exitosamente.",
+            "message": "Usuario creado exitosamente",
             "id": user.id,
             "rol": user.rol,
             "estado": user.estado
         }), 201
-        
-    except SQLAlchemyError:
-        # Manejo de errores de base de datos
-        return jsonify({"error": "Error de base de datos al registrar usuario."}), 500
-    except Exception:
-        # Manejo de errores internos inesperados
-        return jsonify({"error": "Error interno del servidor."}), 500
+    except Exception as e:
+        # Error interno del servidor
+        return jsonify({"error": "Error interno al crear usuario"}), 500
 
-
-@auth_bp.post("/login")
+# -----------------------------------------------------------------
+# 2. Login de Usuario (RESTful: Creación de una Sesión)
+# Ruta: /login
+# Método: POST
+# -----------------------------------------------------------------
+@auth_bp.route("/login", methods=["POST"])
 def login():
-    # Validación de campos requeridos
-    required = ["telefono", "password"]
-    data, error_response = validate_request_data(required)
-    if error_response:
-        return jsonify(error_response), 400
+    data = request.json
 
-    try:
-        # Llamada al servicio de login
-        user = login_usuario(data["telefono"], data["password"])
-        
-        # Validación de credenciales
-        if not user:
-            return jsonify({"error": "Teléfono o contraseña incorrecta."}), 401
-        
-        # Validación de estado de cuenta
-        if user.estado == "bloqueado":
-            return jsonify({
-                "error": "El usuario está bloqueado.",
-                "detalle": "Comuníquese con el administrador."
-            }), 403 # 403 Forbidden
-            
-        # Respuesta exitosa
+    if not data or "telefono" not in data or "password" not in data:
+        return jsonify({"error": "Debe ingresar teléfono y contraseña"}), 400
+
+    # 🔍 Llamada al servicio para verificar credenciales
+    user = login_usuario(data["telefono"], data["password"])
+
+    if not user:
+        return jsonify({"error": "Teléfono o contraseña incorrecta"}), 401
+
+    # 🚫 Verificar si el usuario está bloqueado
+    if user.estado == "bloqueado":
         return jsonify({
-            "message": "Login exitoso.",
-            "usuario": user.nombre,
-            "rol": user.rol,
-            "ultima_conexion": user.ultima_conexion.strftime("%Y-%m-%d %H:%M:%S") 
-                               if user.ultima_conexion else None
-        }), 200
+            "error": "El usuario ha sido bloqueado por el administrador.",
+            "detalle": "Comuníquese con el administrador para más información."
+        }), 403  # 403 = Forbidden
 
-    except SQLAlchemyError:
-        # Manejo de errores de base de datos
-        return jsonify({"error": "Error de base de datos durante el login."}), 500
-    except Exception:
-        # Manejo de errores internos inesperados
-        return jsonify({"error": "Error interno del servidor."}), 500
+    # ✅ Si el usuario está activo, continuar con el login
+    return jsonify({
+        "message": "Login exitoso",
+        "usuario": user.nombre,
+        "rol": user.rol,
+        "ultima_conexion": (
+            user.ultima_conexion.strftime("%Y-%m-%d %H:%M:%S")
+            if user.ultima_conexion else None
+        )
+    }), 200
 
 
-@auth_bp.post("/password/reset-request")
+# -----------------------------------------------------------------
+# 3. Paso 1: Solicitud de Restablecimiento (Verificación)
+# (RESTful: Creación de un Recurso de Solicitud de Restablecimiento)
+# Ruta: /password/reset-request
+# Método: POST
+# -----------------------------------------------------------------
+@auth_bp.route('/password/reset-request', methods=['POST'])
 def verificar_telefono_ruta():
-    #  Validación de campo requerido
-    required = ["telefono"]
-    data, error_response = validate_request_data(required)
-    if error_response:
-        return jsonify(error_response), 400
+    data = request.get_json()
+    telefono = data.get('telefono')
 
-    try:
-        # Llamada al servicio de verificación
-        usuario = verificar_existencia_telefono(data['telefono'])
-        
-        # Validación de existencia
-        if usuario:
-            return jsonify({
-                "mensaje": "Teléfono válido. Procede con el cambio de contraseña."
-            }), 200
-        else:
-            return jsonify({"error": "No existe un usuario con ese número."}), 404
-            
-    except SQLAlchemyError:
-        # Manejo de errores de base de datos
-        return jsonify({"error": "Error de base de datos al verificar teléfono."}), 500
-    except Exception:
-        # Manejo de errores internos inesperados
-        return jsonify({"error": "Error interno del servidor."}), 500
+    if not telefono:
+        return jsonify({"error": "Debe ingresar el número de teléfono"}), 400
 
+    # Llamada al servicio
+    usuario = verificar_existencia_telefono(telefono)
 
-@auth_bp.patch("/password")
+    if usuario:
+        # Se asume que aquí se podría enviar un código de verificación (no implementado)
+        return jsonify({"mensaje": "Teléfono válido. Procede con el cambio de contraseña.", "telefono": telefono}), 200
+    else:
+        # 404 Not Found
+        return jsonify({"error": "No existe un usuario con ese número"}), 404
+
+# -----------------------------------------------------------------
+# 4. Paso 2: Cambio de Contraseña 
+# (RESTful: Actualización Parcial del Recurso /password del usuario)
+# Ruta: /password
+# Método: PATCH
+# -----------------------------------------------------------------
+@auth_bp.route('/password', methods=['PATCH']) # <- Uso de PATCH para actualización parcial
 def cambiar_contrasena_ruta():
-    # Validación de campos requeridos
-    required = ["telefono", "nueva_contrasena", "confirmar_contrasena"]
-    data, error_response = validate_request_data(required)
-    if error_response:
-        return jsonify(error_response), 400
+    data = request.get_json()
+    telefono = data.get('telefono')
+    nueva_contrasena = data.get('nueva_contrasena')
+    confirmar_contrasena = data.get('confirmar_contrasena')
 
-    # Validación de coincidencia de contraseñas
-    if data["nueva_contrasena"] != data["confirmar_contrasena"]:
-        return jsonify({"error": "Las contraseñas no coinciden."}), 400
-    
+    if not telefono or not nueva_contrasena or not confirmar_contrasena:
+        return jsonify({"error": "Debe completar todos los campos"}), 400
+
+    if nueva_contrasena != confirmar_contrasena:
+        return jsonify({"error": "Las contraseñas no coinciden"}), 400
+
+    # Llamada al servicio
     try:
-        # Llamada al servicio de restablecimiento
-        exito, error = restablecer_contrasena(data["telefono"], data["nueva_contrasena"])
+        exito, error = restablecer_contrasena(telefono, nueva_contrasena)
         
-        # Manejo de error de servicio (ej: usuario no encontrado)
         if error:
-            return jsonify({"error": error}), 404
+            # Manejar errores como "usuario no encontrado" o fallos en DB
+            return jsonify({"error": error}), 404 # 404 para usuario no encontrado
 
-        # Respuesta exitosa
-        return jsonify({"mensaje": "Contraseña actualizada correctamente."}), 200
-        
-    except SQLAlchemyError:
-        # Manejo de errores de base de datos
-        return jsonify({"error": "Error de base de datos al actualizar contraseña."}), 500
-    except Exception:
-        # Manejo de errores internos inesperados
-        return jsonify({"error": "Error interno del servidor."}), 500
+        # 200 OK para una actualización exitosa con PATCH
+        return jsonify({"mensaje": "Contraseña actualizada correctamente"}), 200
+    except Exception as e:
+        return jsonify({"error": "Error interno al actualizar la contraseña"}), 500

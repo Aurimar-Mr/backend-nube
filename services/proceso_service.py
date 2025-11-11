@@ -35,3 +35,12 @@ def finalizar_proceso():
 def hay_proceso_activo():
     """Retorna True si existe un proceso activo."""
     return obtener_proceso_activo() is not None
+
+def proceso_to_dict(proceso: ProcesoBiodigestor):
+    """Convierte un objeto ProcesoBiodigestor a diccionario JSON serializable."""
+    return {
+        "id": proceso.id,
+        "estado": proceso.estado,
+        "fecha_inicio": proceso.fecha_inicio.isoformat() if proceso.fecha_inicio else None,
+        "fecha_fin": proceso.fecha_fin.isoformat() if proceso.fecha_fin else None,
+    }
